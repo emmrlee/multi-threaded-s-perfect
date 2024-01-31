@@ -1,0 +1,68 @@
+NAME:
+=====
+        Emma Lee
+
+Programs Files:
+===============
+    S Perfect:
+        `s_perfect` directory
+                output for short run stored in `short.out` in `s_perfect` directory
+                output for long run stored in `long.out` in `s_perfect` directory
+
+How to Compile & Run:
+=====================
+    S Perfect: `cd` to `s_perfect` directory, then `cargo run -r N` or `cargo run -r -- N`
+        Give command line N, the maximum number to consider in the search for S-perfect and near S-perfect numbers. Please run for release for faster results.
+            ex: cargo run -r -- 1000000
+                or cargo run -r 1000000
+
+Known Limitations:
+==================
+    Unfortunately, the way I chose to divide into chunks requires that N, the max num to be considered, must meet the requirement in which (N-10,000) % 1,000 == 0. I made the decision that this limitation is okay considering what we're using the program for. Because we are computing large numbers and observing time/speedups, I felt as though we only really cared about the number of digits in N, rather than the exact N. Hopefully this is okay.
+
+Speed ups:
+===========
+    Short run:
+        Given 2,000,000 as the max num to be considered
+            real    12m7.070s   (about 12 min)
+            user    94m34.728s  (about 95 min)
+            sys     0m2.296s
+        Speed up of about 7.9 times
+
+    Long run:
+        Given 17,000,000 as the max num to be considered
+            start   about 8pm
+            end     about 10am
+            (estimated  14 hours)
+
+
+Questions:
+===================
+    1) The Rust ownership/borrowing and unsafe{} mechanism for global variables were so so evil. 
+        The ownership and borrowing rules were especially evil in the thread spawning because that closure forced you to move ownership into it. Some variables were easy to work around (ex: making clones of the transmitter), but others were terrible. I think at one time I didn't make a clone of the s_set that a thread needed to borrow outside of the closure, and instead I was trying to give my thread the borrowed s_set inside the closure. Because `move` will move everything into the `||`, I sat there trying to figure out if there was a way to selectively move stuff (wasted a lot of time here). I also ran into the lifetime error when trying to borrow stuff, since some of my references to the borrowed stuff lived longer than the actual stuff to be borrowed. However, even though the ownership rules were evil to me, I think they make a lot of sense when parallel programming (like they force you to safely handle shared data?). So in a way, ownership rules both made it difficult and easy to write this program. Either way, the need to copy the s set makes me so so mad because it feels like such a waste of time and space.
+
+        The unsafe{} thing was a whole mess I got into because I was trying to work with global vectors. It wasn't that bad to work with, but it did result in some nasty seg faults that I still don't understand (def a time sink as well).
+
+        I also think the `mpsc` stuff was pretty nicely laid out. It wasn't too difficult to understand how to use the transmitters and receivers, so that is definitely a point for Rust.
+
+    2) I do think that message passing is more difficult to implement because there are more moving parts to think about. In Rust, opening different channels for different directions of communication can be cumbersome. Also, handling out of order receiving can also be more taxing than just simply locking with shared memory. I feel like shared memory locks and/or atomics kinda give threads more agency over timing themselves properly, whereas message passing timing is finicky/less certain. I think message passing is more prone to race conditions?? (or like at least in terms of ordering received thread results) But then also shared memory is more prone to deadlocks? However, not having shared memory means processes can run on different machines which plays up the flexibility aspect. With message passing, processes can run not only on machines in different physical locations, but also with different memory styles? (idk how to explain better; I'm kinda thinking like Windows-32 vs Windows-64?)
+    
+    3) The dependency on the s set to determine if a number is s perfect (or near) by nature makes the problem not well suited to multi-threading because working on a chunk of numbers that are higher than the number you are currently looking at does not at first seem feasible. However, the workarounds by being able to only know half of the s set (or even the square root) to calculate if a number is s perfect (or near) makes the problem possible. Having the s set for nums [0, N] means you can calculate if N*2 is a perfect number, letting you spawn threads for those numbers in advance. Additionally, just in general, this problem is by nature compute bound, since you'd need to calculate all the s set numbers as you go and then check all of them individually (that's a lot of work!). The amount of work definitely encourages multi-threading. In regards to message passing, the fact that the s perfect numbers are calculated using sums is also particularly useful, since summation does not strictly require the numbers in the s set to be in sorted order. Sometimes, (especially for small thread sizes) I found that a thread that is working on a later chunk might finish first and send its additions to the s set before an earlier chunk. This resulted in the s set being appended to out of order, but since s perfect only looks at summation, receiveing the passed additions out of order wasn't an issue.
+
+    4) With message passing, a channel can only send & receive things of one type. This means, if I'd need to adapt my code, I may have to open a new channel or change what is getting sent over it. This could make adaptation tricky. If I needed to modify my code to do more robust error handling, message passing might make this difficult to implement because I might have to open a second channel to except error types/Result types? If I wanted to implement two-way communication, the whole channel type restriction thing could also be evil. Additionally, the fact that message receiving has no guaranteed order may  make altering my code difficult for a problem that needs more sorted/well-timed message receiving. Also, because the receiver has trouble keeping track of how many messages it received/when to stop receiving, modifying the code to deal with a problem with a more vague stopping point may take more work.
+
+
+Approximate Hours Worked:
+=========================
+    More hours than I'd like to admit....
+    Maybe like 12?
+    I definitely spent like 3ish hours with you during office hours just discussing, and then maybe I spent 4 hours coding, 4 hours being stuck, & 1 hour babysitting runs? 
+
+Reflection:
+===========
+    I think this was my first formal experience dealing with concurrency and/or parallel programming; I did some work with callbacks over the summer, but it was more like I tried typing a bunch of different things and somehow got the correct behavior (instead of really understanding what was going on). I was actually so clueless when starting this assignment, but I now feel more confident after the many (super helpful) office hour discussions. Even though multi-threaded programs are confusing and take a lot of brainpower to think about, they are so so useful and I'm glad this assignment forced me to understand them better. I definitely made a lot of mistakes that I will never make again! (ex: not putting in checkpoints and just sitting waiting for my run to finish in order to get any sort of output) I wish my lab computer alex a speedy recovery from all the work I gave it.
+
+Resources Used:
+===============
+    Rust documentation for message passing
+    Many many office hours (thank you!!!)
